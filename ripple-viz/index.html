@@ -71,7 +71,7 @@
   <button id="midiBtn">Midi</button>
   <label>Rings <input type="range" id="rings" min="8" max="96" value="30"></label>
   <label>Bright <input type="range" id="bright" min="0.2" max="2" step="0.05" value="1"></label>
-  <label>Kick <input type="range" id="kick" min="0.02" max="0.4" step="0.01" value="0.12"></label>
+  <label>Kick <input type="range" id="kick" min="0.01" max="0.4" step="0.01" value="0.12"></label>
   <label>Wobble <input type="range" id="wobble" min="0" max="100" value="0" title="Ring wobble amount"></label>
   <label>Flow <input type="range" id="flow" min="1" max="100" value="35"></label>
   <select id="color">
@@ -426,7 +426,7 @@ var ringsSel=document.getElementById('rings'), flowSel=document.getElementById('
 ringsSel.oninput=function(){ mode.rings=parseInt(this.value,10); };
 wobbleSel.oninput=function(){ mode.wobble=parseInt(this.value,10); };
 brightSel.oninput=function(){ brightness=parseFloat(this.value); };
-kickSel.oninput=function(){ mode.kick=parseFloat(this.value); };
+kickSel.oninput=function(){ mode.kick=Math.max(0.01,parseFloat(this.value)); };
 colorSel.onchange=function(){ mode.color=this.value; };
 bgSel.onchange=function(){ mode.bg= (this.value==='seigaiha') ? 'seigaiha' : (this.value==='transparent' ? 'transparent' : 'black'); };
 seekSel.addEventListener('pointerdown',function(){ seekDrag=true; });
@@ -561,7 +561,7 @@ function drawTitleTime(cx,cy){
 function render(t,ex,ew,eh,trans){
   trans = trans || mode.bg==='transparent';
   var w=ew||W, h=eh||H;
-  if(mode.trails && !mode.radar && !trans){ ctx.fillStyle='rgba(0,0,0,0.14)'; ctx.fillRect(0,0,w,h); }
+  if(mode.trails && !mode.radar && !trans){ ctx.fillStyle='rgba(0,0,0,'+(0.14/brightness)+')'; ctx.fillRect(0,0,w,h); }
   else if(trans){ ctx.clearRect(0,0,w,h); }
   else {
     var g=ctx.createRadialGradient(w/2,h/2,40,w/2,h/2,Math.max(w,h)*0.68);
@@ -580,7 +580,7 @@ function render(t,ex,ew,eh,trans){
       var v=rings[i]; if(v<0.005) continue;
       var r=(r0+gap*(i+0.5)+v*gap*0.55*(0.5+v))*punchBoost;
       var sw=(0.4+v*5.0)*punchBoost;
-      ctx.lineWidth=sw; ctx.strokeStyle=colorAt(m,i,n,tRad);
+      ctx.lineWidth=sw; ctx.strokeStyle=colorAt(m,i,n,tRad); ctx.globalAlpha=Math.min(1,brightness);
       for(var k=0;k<chunks;k++){
         var th0=k/chunks*Math.PI*2, th1=(k+1)/chunks*Math.PI*2;
         var mid=th0+Math.PI/chunks;
@@ -614,7 +614,7 @@ function render(t,ex,ew,eh,trans){
       var sw2=(0.4+v2*5.0)*punchBoost;
       if(mode.wobble){ ringPath(cx,cy,r2,90,mode.wobble/100*0.07,tRad,i2); }
       else { ctx.beginPath(); ctx.arc(cx,cy,r2,0,Math.PI*2); }
-      ctx.strokeStyle=colorAt(m,i2,n,tRad); ctx.lineWidth=sw2; ctx.globalAlpha=(0.15+0.85*v2)*Math.min(1,0.7+0.6*punch); ctx.stroke();
+      ctx.strokeStyle=colorAt(m,i2,n,tRad); ctx.lineWidth=sw2; ctx.globalAlpha=(0.15+0.85*v2)*Math.min(1,0.7+0.6*punch)*Math.min(1,brightness); ctx.stroke();
     }
     ctx.globalAlpha=1;
     var sa=sweepAngle();
@@ -622,7 +622,7 @@ function render(t,ex,ew,eh,trans){
     ctx.strokeStyle=colorAt(m,0,n,tRad); ctx.globalAlpha=0.45; ctx.lineWidth=1.4; ctx.stroke();
     ctx.globalAlpha=1;
     ctx.beginPath(); ctx.arc(cx,cy,R,0,Math.PI*2);
-    ctx.strokeStyle=colorAt(m,0,n,tRad); ctx.globalAlpha=0.1+0.5*punch; ctx.lineWidth=1+7*punch; ctx.stroke();
+    ctx.strokeStyle=colorAt(m,0,n,tRad); ctx.globalAlpha=(0.1+0.5*punch)*Math.min(1,brightness); ctx.lineWidth=1+7*punch; ctx.stroke();
     ctx.globalAlpha=1;
     ctx.beginPath(); ctx.arc(cx,cy,3.2,0,Math.PI*2); ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.fill();
   }
