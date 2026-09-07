@@ -121,6 +121,7 @@
 function trap(e){ try{ var t=document.getElementById('toast'); t.textContent='Error: '+(e&&e.message||e); t.classList.add('show'); }catch(_){} }
 window.addEventListener('error', function(e){ trap(e.message); });
 
+var brightness=1;                 // global render brightness (Bright slider as a real var)
 var canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 var W=0,H=0,dpr=1;
 function resize(){ dpr=Math.min(2,window.devicePixelRatio||1); W=window.innerWidth; H=window.innerHeight;
@@ -203,6 +204,7 @@ function drawParticles(ctx){
   ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 }
 function toggleParticles(){ mode.particles=!mode.particles; toastMsg('Particles '+(mode.particles?'ON':'OFF')); if(!mode.particles){ parts=[]; waveAmp=0; } }
+window.toggleParticles=toggleParticles;   // expose for inline onclick (IIFE scope)
 // -----------------------------------------------------------------
 // ---------------------------------------------------------------------------
 var MODES=['gold','teal','sunset','mucha','horizon','aurora','mantra','modernlove','spectrum','psy'];

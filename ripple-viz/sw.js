@@ -1,5 +1,5 @@
 /* Ripple Viz service worker — network-first, cache fallback */
-const CACHE = 'ripple-viz-v1';
+const CACHE = 'ripple-v4.6-fix1';
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./index.html', './manifest.webmanifest'])));
