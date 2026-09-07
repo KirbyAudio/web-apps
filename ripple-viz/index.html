@@ -71,6 +71,7 @@
   <button id="midiBtn">Midi</button>
   <label>Rings <input type="range" id="rings" min="8" max="96" value="30"></label>
   <label>Bright <input type="range" id="bright" min="0.2" max="2" step="0.05" value="1"></label>
+  <label>Kick <input type="range" id="kick" min="0.02" max="0.4" step="0.01" value="0.12"></label>
   <label>Wobble <input type="range" id="wobble" min="0" max="100" value="0" title="Ring wobble amount"></label>
   <label>Flow <input type="range" id="flow" min="1" max="100" value="35"></label>
   <select id="color">
@@ -129,7 +130,7 @@ window.addEventListener('resize',resize); resize();
 var ac=null, analyser=null, srcNode=null, media=null, micStream=null, mrDest=null;
 var demoOsc=null,demoOsc2=null,demoLfo=null,demoOn=false,micOn=false;
 var rings=new Float32Array(96), last=performance.now();
-var mode={rings:30,color:'gold',bg:'black',trails:false,volume:1,punch:false,radar:false,wobble:0,particles:false};
+var mode={rings:30,color:'gold',bg:'black',trails:false,volume:1,punch:false,radar:false,wobble:0,kick:0.12,particles:false};
 
 // ---- V4 PARTICLE PHYSICS (wave interference + splash + coalescence) ----
 var P_MAX=1400;
@@ -418,10 +419,12 @@ function syncRecUI(){ document.getElementById('recBtn').classList.toggle('on',!!
 /* ---------- controls ---------- */
 var ringsSel=document.getElementById('rings'), flowSel=document.getElementById('flow'),
     colorSel=document.getElementById('color'), bgSel=document.getElementById('bg'),
-    seekSel=document.getElementById('seek'), wobbleSel=document.getElementById('wobble');
+    seekSel=document.getElementById('seek'), wobbleSel=document.getElementById('wobble'),
+    brightSel=document.getElementById('bright'), kickSel=document.getElementById('kick');
 ringsSel.oninput=function(){ mode.rings=parseInt(this.value,10); };
 wobbleSel.oninput=function(){ mode.wobble=parseInt(this.value,10); };
 brightSel.oninput=function(){ brightness=parseFloat(this.value); };
+kickSel.oninput=function(){ mode.kick=parseFloat(this.value); };
 colorSel.onchange=function(){ mode.color=this.value; };
 bgSel.onchange=function(){ mode.bg= (this.value==='seigaiha') ? 'seigaiha' : (this.value==='transparent' ? 'transparent' : 'black'); };
 seekSel.addEventListener('pointerdown',function(){ seekDrag=true; });
@@ -538,7 +541,7 @@ function updateRings(dt){
       }
       if(cn) lEn/=cn;
       var dLow=lEn-lowPrev; lowPrev=lEn;
-      if(dLow>0.12 && lEn>0.3 && (performance.now()-lastPunch)>180){ punch=1; lastPunch=performance.now(); }
+      if(dLow>mode.kick && lEn>0.3 && (performance.now()-lastPunch)>180){ punch=1; lastPunch=performance.now(); }
     }
   }catch(e){ trap(e); }
 }

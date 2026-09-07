@@ -1,7 +1,7 @@
 {
   "name": "Ripple Viz Player",
   "short_name": "Ripple Viz",
-  "description": "Ripple Viz Player V4.5 \u2014 beat-synced ring art. The Silence is the Canvas.",
+  "description": "Ripple Viz Player V4.6 \u2014 beat-synced ring art + kick sensitivity slider. The Silence is the Canvas.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
