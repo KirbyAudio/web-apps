@@ -1,0 +1,15 @@
+{
+  "name": "BPM Tap Counter",
+  "short_name": "BPM Tap",
+  "description": "Tap BPM counter — steady timing, loud opinions.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#7209b7",
+  "orientation": "any",
+  "icons": [
+    { "src": "../icons/bpm-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "../icons/bpm-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

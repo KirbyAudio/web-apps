@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BPM Tap Counter</title>
+<meta name="theme-color" content="#7209b7">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BPM Tap">
+<link rel="apple-touch-icon" href="../icons/bpm-192.png">
+<link rel="icon" type="image/png" href="../icons/bpm-192.png">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:radial-gradient(1000px 700px at 80% -10%,#2b0a3d,#0d0a08);color:#f4e9d8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;user-select:none;-webkit-user-select:none}
+  .box{max-width:420px;width:100%;text-align:center}
+  h1{font-size:1.5rem;letter-spacing:.06em;color:#d4af37;margin-bottom:1.4rem}
+  .bpm{font-size:5.5rem;font-weight:800;line-height:1;color:#fff;letter-spacing:.02em}
+  .bpm small{font-size:1rem;color:#b9a6c9;font-weight:400;letter-spacing:.2em}
+  .tap{width:100%;margin:1.6rem 0 1rem;padding:1.6rem;font-size:1.6rem;font-weight:700;letter-spacing:.08em;color:#fff;background:linear-gradient(135deg,#7209b7,#5a189a);border:none;border-radius:20px;box-shadow:0 8px 28px rgba(114,9,183,.45);cursor:pointer;touch-action:manipulation}
+  .tap:active{transform:scale(.97)}
+  .row{display:flex;gap:.7rem;justify-content:center}
+  .btn{padding:.7rem 1.3rem;font-size:.95rem;color:#e6d3ff;background:rgba(255,255,255,.07);border:1px solid rgba(212,175,55,.35);border-radius:12px;cursor:pointer;touch-action:manipulation}
+  .btn:active{background:rgba(114,9,183,.4)}
+  .minmax{margin-top:1rem;font-size:.85rem;color:#b9a6c9}
+  .state{margin-top:.9rem;font-size:.8rem;color:#7a6a8c;letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>BPM TAP COUNTER</h1>
+  <div class="bpm" id="bpm">—<br><small>tap the pad</small></div>
+  <button class="tap" id="tap">TAP</button>
+  <div class="row">
+    <button class="btn" id="reset">Reset</button>
+    <button class="btn" id="minus">−2</button>
+    <button class="btn" id="plus">+2</button>
+  </div>
+  <div class="minmax" id="mm"></div>
+  <div class="state" id="state"></div>
+</div>
+<script>
+  let times=[], avg=0, min=0, max=0;
+  const elB=document.getElementById('bpm'), elM=document.getElementById('mm'), elS=document.getElementById('state');
+  const tap=document.getElementById('tap'), reset=document.getElementById('reset'), minus=document.getElementById('minus'), plus=document.getElementById('plus');
+  const now=()=>performance.now();
+  function compute(){
+    if(times.length<2){elB.innerHTML='—<br><small>tap the pad</small>';elM.textContent='';return;}
+    let diffs=[];for(let i=1;i<times.length;i++)diffs.push(times[i]-times[i-1]);
+    diffs=diffs.filter(d=>d>150&&d<2500);
+    if(!diffs.length){elB.textContent='?';return;}
+    avg=diffs.reduce((a,b)=>a+b,0)/diffs.length;
+    min=Math.min(...diffs);max=Math.max(...diffs);
+    const bpm=Math.round(60000/avg);
+    elB.innerHTML=bpm+'<br><small>BPM</small>';
+    elM.textContent='min '+Math.round(60000/max)+' · max '+Math.round(60000/min)+' · taps '+times.length;
+    elS.textContent= avg<500?'you\'re steady 🔥':(avg<800?'getting there 🎯':'loosen that wrist 🍺');
+  }
+  tap.addEventListener('click',()=>{times.push(now());if(times.length>20)times.shift();compute();});
+  reset.addEventListener('click',()=>{times=[];compute();});
+  minus.addEventListener('click',()=>{elB.textContent=(parseInt(elB.textContent)||120)-2+'<br><small>BPM</small>';});
+  plus.addEventListener('click',()=>{elB.textContent=(parseInt(elB.textContent)||120)+2+'<br><small>BPM</small>';});
+  document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();tap.click();}});
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>

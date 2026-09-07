@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitar Tuner</title>
+<meta name="theme-color" content="#7209b7">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tuner">
+<link rel="apple-touch-icon" href="../icons/tuner-192.png">
+<link rel="icon" type="image/png" href="../icons/tuner-192.png">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:radial-gradient(1000px 700px at 80% -10%,#2b0a3d,#0d0a08);color:#f4e9d8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;user-select:none;-webkit-user-select:none}
+  .box{max-width:420px;width:100%;text-align:center}
+  h1{font-size:1.5rem;letter-spacing:.06em;color:#d4af37;margin-bottom:1.4rem}
+  .note{font-size:4.5rem;font-weight:800;color:#fff;letter-spacing:.02em}
+  .hz{color:#b9a6c9;font-size:1rem;margin-top:.2rem}
+  .cents{font-size:1.2rem;font-weight:700;margin:.5rem 0 .8rem;letter-spacing:.06em}
+  .meter{height:16px;background:rgba(255,255,255,.08);border-radius:10px;overflow:hidden;position:relative}
+  .meter .fill{position:absolute;top:0;bottom:0;left:50%;width:6px;background:#d4af37;transform:translateX(-50%);transition:left .08s linear}
+  .tune{width:100%;margin:1.6rem 0 1rem;padding:1.4rem;font-size:1.3rem;font-weight:700;letter-spacing:.06em;color:#fff;background:linear-gradient(135deg,#7209b7,#5a189a);border:none;border-radius:18px;box-shadow:0 8px 28px rgba(114,9,183,.45);cursor:pointer;touch-action:manipulation}
+  .tune:active{transform:scale(.97)}
+  .strings{margin-top:1rem;display:flex;justify-content:center;gap:.4rem;flex-wrap:wrap}
+  .str{padding:.4rem .65rem;font-size:.9rem;border-radius:8px;border:1px solid rgba(255,255,255,.14);color:#c9b8da;cursor:pointer;background:rgba(255,255,255,.05)}
+  .str.active{background:#7209b7;border-color:#d4af37;color:#fff}
+  .state{margin-top:.9rem;font-size:.8rem;color:#7a6a8c}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>GUITAR TUNER</h1>
+  <div class="note" id="note">—</div>
+  <div class="hz" id="hz">play a string</div>
+  <div class="cents" id="cents"></div>
+  <div class="meter"><div class="fill" id="fill" style="left:50%"></div></div>
+  <button class="tune" id="tune">🎙️ TUNE</button>
+  <div class="strings" id="strings"></div>
+  <div class="state" id="state"></div>
+</div>
+<script>
+  const notes=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const std=['E2','A2','D3','G3','B3','E4'];
+  let ctx=null, analyser=null, running=false, target=null;
+  const elN=document.getElementById('note'),elH=document.getElementById('hz'),elC=document.getElementById('cents'),
+        elF=document.getElementById('fill'),elS=document.getElementById('state');
+  function fmt(n){return notes[n%12]+Math.floor(n/12)-1;}
+  function closest(freq){
+    let n=Math.round(12*Math.log2(freq/440));
+    const exact=440*Math.pow(2,n/12);
+    return {name:fmt(n),cents:Math.round(1200*Math.log2(freq/exact)),freq:exact,n};
+  }
+  document.getElementById('strings').innerHTML=std.map(s=>`<div class="str" data-f="${440*Math.pow(2,(parseInt(s[1])-1)*5-5)/1*Math.pow(2,(parseInt(s[1])-3)*5/12*0)}">${s}</div>`).join('');
+  // simplify: just set targets by name
+  const sNames={'E2':82.41,'A2':110,'D3':146.83,'G3':196,'B3':246.94,'E4':329.63};
+  document.querySelectorAll('.str').forEach(el=>{
+    el.addEventListener('click',()=>{
+      document.querySelectorAll('.str').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active'); target=sNames[el.dataset.f]||null;
+      const name=el.textContent; target=82.41*Math.pow(2,(['E2','A2','D3','G3','B3','E4'].indexOf(name))*5/12);
+      elN.textContent=name[0]; elH.textContent='tune to '+name; elC.textContent=''; elF.style.left='50%';
+    });
+  });
+  function start(){
+    if(running)return;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    analyser=ctx.createAnalyser();analyser.fftSize=4096;
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false}}).then(stream=>{
+      const src=ctx.createMediaStreamSource(stream);src.connect(analyser);running=true;elS.textContent='listening…';loop();
+    }).catch(e=>elS.textContent='mic blocked: '+e.message);
+  }
+  const buf=new Float32Array(4096);
+  function autoCorrelate(b){
+    let lastC=0,start=0,size=b.length,val=0;
+    for(let i=0;i<size;i++){b[i]=(b[i]*0.987+b[i]*0.013);}
+    const SIZE=4096;const maxR=2048;
+    let c=new Array(maxR);
+    for(let i=0;i<maxR;i++){let sum=0;for(let j=0;j<SIZE-maxR;j++)sum+=(b[j]*b[j+i]);c[i]=sum;}
+    let d=0; while(c[d]>c[d+1])d++;
+    let maxv=-1,maxpos=-1;
+    for(let i=d;i<maxR;i++){if(c[i]>maxv){maxv=c[i];maxpos=i;}}
+    let T=maxpos;
+    if(c[T]>0.01){let x1=c[T-1],x2=c[T],x3=c[T+1],a=(x1+x3-2*x2)/2,b=(x3-x1)/2;
+      if(a)T=T-b/(2*a);}
+    return 44100/T;
+  }
+  function loop(){
+    if(!running)return;
+    analyser.getFloatTimeDomainData(buf);
+    let f=autoCorrelate(buf);
+    if(f>40&&f<1200){
+      const r=closest(f);
+      elN.textContent=r.name;
+      elH.textContent=f.toFixed(1)+' Hz';
+      elC.textContent=(r.cents>=0?'+':'')+r.cents+' cents';
+      const left = Math.max(4,Math.min(96,50 + r.cents*4.5));
+      elF.style.left=left+'%';
+      elC.style.color=Math.abs(r.cents)<4?'#7CFC00':'#f4e9d8';
+      if(target){
+        const d=closest(f); const diff=Math.round(1200*Math.log2(f/target));
+        elC.textContent=(diff>=0?'+':'')+diff+' cents';
+        elC.style.color=Math.abs(diff)<4?'#7CFC00':'#f4e9d8';
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  document.getElementById('tune').addEventListener('click',start);
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>

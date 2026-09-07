@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metronome</title>
+<meta name="theme-color" content="#7209b7">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Metronome">
+<link rel="apple-touch-icon" href="../icons/metronome-192.png">
+<link rel="icon" type="image/png" href="../icons/metronome-192.png">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:radial-gradient(1000px 700px at 80% -10%,#2b0a3d,#0d0a08);color:#f4e9d8;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;user-select:none;-webkit-user-select:none}
+  .box{max-width:420px;width:100%;text-align:center}
+  h1{font-size:1.5rem;letter-spacing:.06em;color:#d4af37;margin-bottom:1.4rem}
+  .bpm{font-size:5.5rem;font-weight:800;color:#fff;line-height:1}
+  .slider{width:100%;margin:1.4rem 0 .6rem;accent-color:#7209b7}
+  .beats{display:flex;gap:.5rem;justify-content:center;margin-bottom:1.2rem}
+  .beat-btn{padding:.5rem .85rem;font-size:.9rem;color:#e6d3ff;background:rgba(255,255,255,.07);border:1px solid rgba(212,175,55,.3);border-radius:10px;cursor:pointer}
+  .beat-btn.active{background:#7209b7;border-color:#d4af37;color:#fff}
+  .start{width:100%;padding:1.4rem;font-size:1.4rem;font-weight:700;letter-spacing:.08em;color:#fff;background:linear-gradient(135deg,#7209b7,#5a189a);border:none;border-radius:18px;box-shadow:0 8px 28px rgba(114,9,183,.45);cursor:pointer}
+  .start:active{transform:scale(.97)}
+  .state{margin-top:1rem;font-size:.8rem;color:#7a6a8c}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>METRONOME</h1>
+  <div class="bpm" id="bpm">120</div>
+  <input type="range" min="30" max="240" value="120" class="slider" id="slider">
+  <div class="beats" id="beats"></div>
+  <button class="start" id="start">PLAY</button>
+  <div class="state" id="state"></div>
+</div>
+<script>
+  let ctx=null, timer=null, bpm=120, beats=4, playing=false;
+  const elB=document.getElementById('bpm'), elS=document.getElementById('slider'), elSt=document.getElementById('start'), elState=document.getElementById('state');
+  [2,3,4,5,6].forEach(n=>{
+    const b=document.createElement('div');b.className='beat-btn'+(n===4?' active':'');b.textContent=n+'/4';
+    b.onclick=()=>{document.querySelectorAll('.beat-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');beats=n;};
+    document.getElementById('beats').appendChild(b);
+  });
+  elS.oninput=()=>{bpm=parseInt(elS.value);elB.textContent=bpm;if(playing){restart();}};
+  function click(freq,dur){
+    if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.type='square';o.frequency.value=freq;g.gain.value=0.5;
+    o.connect(g);g.connect(ctx.destination);
+    o.start();o.stop(ctx.currentTime+dur);
+  }
+  let step=0;
+  function tick(){
+    click(step===0?1760:880,0.04);
+    step=(step+1)%beats;
+    const next=60/bpm;
+    timer=setTimeout(tick,next*1000);
+  }
+  function restart(){
+    clearTimeout(timer);step=0;tick();
+  }
+  elSt.onclick=()=>{
+    if(!playing){playing=true;elSt.textContent='STOP';elState.textContent='clicking away…';restart();}
+    else{playing=false;elSt.textContent='PLAY';elState.textContent='';clearTimeout(timer);}
+  };
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>
