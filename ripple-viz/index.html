@@ -47,6 +47,7 @@
 </style>
 </head>
 <body>
+
 <canvas id="c"></canvas>
 <div id="rec"></div>
 <div id="hint">The Silence is the Canvas · drag songs · H for keys</div>
@@ -66,8 +67,10 @@
   <button id="recBtn">&#9679; Rec</button>
   <button id="punchBtn">Punch</button>
   <button id="radarBtn">Radar</button>
+  <button id="partBtn" onclick="toggleParticles()">Particles</button>
   <button id="midiBtn">Midi</button>
   <label>Rings <input type="range" id="rings" min="8" max="96" value="30"></label>
+  <label>Bright <input type="range" id="bright" min="0.2" max="2" step="0.05" value="1"></label>
   <label>Wobble <input type="range" id="wobble" min="0" max="100" value="0" title="Ring wobble amount"></label>
   <label>Flow <input type="range" id="flow" min="1" max="100" value="35"></label>
   <select id="color">
@@ -128,49 +131,78 @@ var demoOsc=null,demoOsc2=null,demoLfo=null,demoOn=false,micOn=false;
 var rings=new Float32Array(96), last=performance.now();
 var mode={rings:30,color:'gold',bg:'black',trails:false,volume:1,punch:false,radar:false,wobble:0,particles:false};
 
-// ---- V3 PARTICLE ENGINE (droplets off the rings) --------------------------
-// Particles spawn at ring radius for band i when that band's energy spikes;
-// they drift outward, fall back under surface tension (drag), and fade.
-// Valis: swap spawn/update/draw for your physics engine hooks here.
-var P_MAX=600;
-var parts=[];               // {x,y,vx,vy,life,ttl,size,hue}
+// ---- V4 PARTICLE PHYSICS (wave interference + splash + coalescence) ----
+var P_MAX=1400;
+var parts=[];
+var waveR=0, waveAmp=0;             // travelling ring pulse on punch
 function spawnRingParticles(n,vr){
   if(!mode.particles || parts.length>=P_MAX) return;
   var w=W,h=H,cx=w/2,cy=h/2;
   var R=Math.min(w,h)/2-Math.max(20,w*0.012);
   var r0=Math.max(40,w*0.05), gap=(R-r0-30)/n;
+  var boost = 1 + punch*3.0;        // splash: punch shoves energy up
   for(var i=0;i<n;i++){
-    var v=rings[i]; if(v<0.16) continue;            // only lively bands
-    if(Math.random()>(v*0.55*vr)) continue;         // density by energy
+    var v=rings[i]; if(v<0.10) continue;
+    if(Math.random()>(v*0.62*vr*boost)) continue;
     var a=Math.random()*Math.PI*2;
     var rad=r0+gap*(i+0.5);
     var x=cx+Math.cos(a)*rad, y=cy+Math.sin(a)*rad;
-    var sp=40+v*260;                                // outward speed by band energy
-    parts.push({x:x,y:y,vx:Math.cos(a)*sp+(Math.random()-0.5)*30,
-                      vy:Math.sin(a)*sp+(Math.random()-0.5)*30,
-                life:0,ttl:1.2+Math.random()*1.6,
-                size:0.8+v*2.6,hue:i/n});
+    var sp=40+v*300*(1+punch*2.5);  // punch gives droplets speed
+    parts.push({x:x,y:y,vx:Math.cos(a)*sp+(Math.random()-0.5)*40,
+                     vy:Math.sin(a)*sp+(Math.random()-0.5)*40,
+                life:0,ttl:1.2+Math.random()*1.8,
+                size:0.8+v*3.0,hue:i/n});
     if(parts.length>=P_MAX) break;
+  }
+  if(punch>0.6){                    // coalescence: punch spawns a travelling wave
+    waveR=Math.max(waveR, Math.min(w,h)*0.24);
+    waveAmp=Math.max(waveAmp, 0.5+punch*0.8);
   }
 }
 function updateParticles(dt){
   for(var i=parts.length-1;i>=0;i--){
     var p=parts[i]; p.life+=dt;
     if(p.life>=p.ttl){ parts.splice(i,1); continue; }
-    p.vx*=Math.pow(0.35,dt); p.vy*=Math.pow(0.35,dt);   // water drag
+    p.vx*=Math.pow(0.30,dt); p.vy*=Math.pow(0.30,dt);
     p.x+=p.vx*dt; p.y+=p.vy*dt;
+  }
+  if(waveAmp>0.01){
+    waveR+=dt*(Math.min(w,h)*0.55);
+    waveAmp*=Math.pow(0.15,dt);
+  }
+  if(waveAmp>0.03){                 // interference: push particles off wave front
+    var cx=W/2, cy=H/2;
+    for(var j=0;j<parts.length;j++){
+      var q=parts[j];
+      var dx=q.x-cx, dy=q.y-cy;
+      var dist=Math.sqrt(dx*dx+dy*dy)||1;
+      var near=Math.abs(dist-waveR);
+      if(near<30 && Math.random()<0.5){
+        var push=(1-near/30)*waveAmp*60*dt;
+        q.vx+=dx/dist*push; q.vy+=dy/dist*push;
+      }
+    }
   }
 }
 function drawParticles(ctx){
+  var cx=ctx.canvas.width/2, cy=ctx.canvas.height/2;
+  ctx.globalCompositeOperation='lighter';
   for(var i=0;i<parts.length;i++){
     var p=parts[i], f=1-p.life/p.ttl;
-    ctx.globalAlpha=f*0.85;
+    ctx.globalAlpha=f*0.8*brightness;
     ctx.fillStyle=colorAt(mode.color,Math.round(p.hue*30),30,0);
-    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(0.5+f*0.7),0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(0.5+f*0.8),0,Math.PI*2); ctx.fill();
   }
-  ctx.globalAlpha=1;
+  if(waveAmp>0.03){                 // the traveling pulse as a bright ring
+    ctx.globalAlpha=Math.min(0.9,waveAmp)*0.9*brightness;
+    ctx.strokeStyle=colorAt(mode.color,15,30,0);
+    ctx.lineWidth=2.5*Math.min(1,waveAmp)+1;
+    ctx.beginPath(); ctx.arc(cx,cy,waveR,0,Math.PI*2); ctx.stroke();
+  }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
 }
-function toggleParticles(){ mode.particles=!mode.particles; toastMsg('Particles '+(mode.particles?'ON':'OFF')); if(!mode.particles) parts=[]; }
+function toggleParticles(){ mode.particles=!mode.particles; toastMsg('Particles '+(mode.particles?'ON':'OFF')); if(!mode.particles){ parts=[]; waveAmp=0; } }
+// -----------------------------------------------------------------
 // ---------------------------------------------------------------------------
 var MODES=['gold','teal','sunset','mucha','horizon','aurora','mantra','modernlove','spectrum','psy'];
 var BG=['black','seigaiha','transparent'];
@@ -389,6 +421,7 @@ var ringsSel=document.getElementById('rings'), flowSel=document.getElementById('
     seekSel=document.getElementById('seek'), wobbleSel=document.getElementById('wobble');
 ringsSel.oninput=function(){ mode.rings=parseInt(this.value,10); };
 wobbleSel.oninput=function(){ mode.wobble=parseInt(this.value,10); };
+brightSel.oninput=function(){ brightness=parseFloat(this.value); };
 colorSel.onchange=function(){ mode.color=this.value; };
 bgSel.onchange=function(){ mode.bg= (this.value==='seigaiha') ? 'seigaiha' : (this.value==='transparent' ? 'transparent' : 'black'); };
 seekSel.addEventListener('pointerdown',function(){ seekDrag=true; });
@@ -498,7 +531,7 @@ function updateRings(dt){
     }
     var tmp=rings.slice(0,n);
     for(var k2=1;k2<n-1;k2++) rings[k2]=tmp[k2-1]*0.22+tmp[k2]*0.56+tmp[k2+1]*0.22;
-    if(mode.punch){
+    if(sourceAlive){          // always-on beat gate: fires on real kick even without manual punch
       var lEn=0,cn=0;
       for(var b=Math.floor(B*40/22050); b<Math.floor(B*150/22050)&&b<B; b++){
         var v2=(fr[b]+80)/80; if(v2<0)v2=0; if(v2>1)v2=1; lEn+=v2; cn++;
@@ -626,6 +659,6 @@ document.getElementById('save').onclick=function(){
 };
 })();
 </script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(e){console.warn("SW failed",e);});});}</script>
+
 </body>
 </html>
